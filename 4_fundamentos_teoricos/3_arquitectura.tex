@@ -1,0 +1,19 @@
+\subsection{Arquitectura (física y lógica)}
+La arquitectura de las bases de datos orientadas a columnas se distinguen por su organización física de datos, modificando los estándares de los sistemas tradicionales. Este sistema de almacenamiento guarda los valores en una misma columna, o atributo. 
+
+La arquitectura física se basa en un modelo de almacenamiento por descomposición \textit{DSM}. En este modelo, los valores de una misma columna se almacenan juntos, separados físicamente de otras columnas. El DSM está optimizado para \textit{OLAP}, sistema de procesamiento de cargas de trabajo analíticas. Según \textcite{matei2010}, este sistema se encarga de procesar un gran volumen de datos en pocas columnas. En esta arquitectura, el almacén de datos tiene que estar optimizado para operaciones de lectura, ya que es el repositorio principal para el procesamiento analítico. Debido a que los datos se almacenan en columnas independientes, las consultas analíticas que necesitan realizar agregaciones sobre una columna se ejecutarán más rápidamente. De esta forma, solo se accede a las columnas necesarias para resolver la consulta, reduciendo accesos a disco y mejorando el rendimiento del sistema cuando se analizan grandes volúmenes de datos.
+
+\textcite{abadi2013} mencionan algunos componentes y tendencias arquitecturales que se han estado utilizando en sistemas orientados a columnas actualmente. Se habla sobre identificadores virtuales, procesamiento orientado a bloques vectorizados, compresión por columnas, \textit{database cracking}, operación directa sobre datos comprimidos y representación redundante de columnas individuales. A continuación se explican brevemente estos conceptos:
+
+    \begin{itemize}
+        \item Identificadores virtuales: No se guarda un ID de fila con cada dato, se utiliza la posición de un valor dentro de una columna.
+        \item Procesamiento orientado a bloques vectorizados: Se procesan los datos sobre bloques vectorizados, en vez de procesarlos tupla por tupla.
+        \item Compresión por columnas: Las columnas se comprimen independientemente para reducir espacio en disco, utilizando el método más efectivo para la circunstancia.
+        \item Database cracking: Se refiere a la indexación adaptativa. Es cuando el sistema crea y reorganiza los índices en el momento en el que está procesando consultas, y no antes.
+        \item Operación directa sobre datos comprimidos: Los BDMS columnares operan directamente sobre los datos comprimidos, con el fin de mejorar el uso de memoria y procesamiento.
+        \item Representación redundante de columnas individuales: Se almacenan múltiples copias de las columnas, cada una ordenada por un atributo diferente, con el fin de filtrar datos más rápido y mejorar el rendimiento de las consultas.
+    \end{itemize}
+
+Un componente esencial de la arquitectura de las bases de datos orientadas a columnas es una proyección. \textcite{matei2010} define una proyección como un conjunto de columnas de una o más tablas lógicas que se almacenan juntas y se ordenan físicamente por atributos. Asimismo, \textcite{stonebraker2005cstore} menciona que una misma columna puede existir en múltiples proyecciones con diferentes órdenes de clasificación, de manera que el optimizador elige la proyección más adecuada para ejecutar la consulta.
+
+C-Store introduce el almacenamiento híbrido

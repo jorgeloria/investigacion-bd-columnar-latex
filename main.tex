@@ -1,0 +1,44 @@
+\documentclass[stu,12pt,spanish]{apa7}
+
+% Poner paquetes adicionales si los necesitan
+\usepackage[utf8]{inputenc}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{enumerate}
+\usepackage{geometry}
+
+% Bibliografía APA7
+\usepackage[style=apa,backend=biber,language=spanish]{biblatex}
+\addbibresource{referencias.bib}
+
+\title{Sistemas de bases de datos orientados a columnas}
+\author{María Herrera C13747 \\ Aron Hidalgo C23880 \\ Jorge Loria A63265 \\ Jesús Mena B54291 \\ José Mora B75044 \\ Javier Pupo C06103}
+\authorsaffiliations{Universidad de Costa Rica \\ Escuela de Ciencias de la Computación e Informática}
+\course{CI-0141 Bases de Datos Avanzadas – Grupo 1}
+\professor{Luis Mata Reyes}
+\duedate{2 de octubre de 2025}
+
+\begin{document}
+\maketitle
+
+\renewcommand{\contentsname}{Tabla de contenidos}
+\tableofcontents
+\newpage
+
+\input{1_abstract/abstract}
+\input{2_introduccion/introduccion}
+%\input{3_objetivos/objetivos}
+\input{4_fundamentos_teoricos/fundamentos}
+\input{5_contextualizacion/contextualizacion}
+\input{6_conclusiones/conclusiones}
+\input{7_caso_de_uso/caso_uso}
+
+\newpage
+% ELIMINAR AL FINAL el \nocite{*} PARA QUE QUEDEN REFERENCIAS CITADAS NADA MÁS
+\nocite{*}
+\printbibliography[heading=bibintoc]
+
+\end{document}
