@@ -6,6 +6,8 @@ set -e
 # Image name (must match what you built)
 IMAGE_NAME="my-latex-apa7"
 
+docker build -t $IMAGE_NAME .
+
 # Clean old build files inside container
 docker run --rm -v "$(pwd)":/workdir $IMAGE_NAME latexmk -C
 

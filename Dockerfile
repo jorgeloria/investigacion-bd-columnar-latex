@@ -1,5 +1,6 @@
 # chatgpt generated
 #build it & run it:
+    # docker build -t my-latex-apa7 .
     # chmod +x ./build.sh
     # ./build.sh
 
