@@ -1,9 +1,210 @@
 \section{Caso de uso}
 
-  \input{7_caso_de_uso/1_CRUD}
+ % \input{7_caso_de_uso/1_CRUD}
 
-  \input{7_caso_de_uso/2_GUI}
+  %\input{7_caso_de_uso/2_GUI}
 
-  \input{7_caso_de_uso/3_instalacion_y_api}
+  %\input{7_caso_de_uso/3_instalacion_y_api}
 
-  \input{7_caso_de_uso/4_lecciones}
+  %\input{7_caso_de_uso/4_lecciones}
+\subsection{Selección de la base de datos orientada a columnas}
+Para la realización del caso de uso de una base de datos orientada a columnas, se escogió ClickHouse. A diferencia de otras alternativas comerciales como Google BigQuery y Amazon Redshift, ClickHouse tiene una versión de código abierto que se puede instalar fácilmente en local \parencite{clickhouse_intro}. Como se mostrará en la sección correspondiente a la instalación e implementación, cuando se trabaja con tamaños de datos moderados, ClickHouse no requiere de grandes cantidades de recursos computacionales. Esto permite su instalación en computadoras personales, alineándose con el objetivo didáctico de este documento.
+
+Asimismo, ClickHouse es una base de datos popular que se utiliza en entornos de producción para el procesamiento analítico en línea (OLAP por las siglas de \textit{online analytical processing}) de grandes volúmenes de datos \parencite{clickhouse_intro}. De manera que podremos ejemplificar las principales ventajas de las bases de datos orientadas a columnas mencionadas en el documento teórico, así como las principales diferencias con las bases de datos transaccionales.
+\\
+
+\subsection{Instalación y Ejecución de ClickHouse en un Entorno Local}
+Para este caso de uso, se utilizó la versión \textit{25.8.4.13} de  ClickHouse. La instalación se realizó mediante una imagen de Docker \parencite{clickhouse_docker}. El proceso de instalación, configuración y ejecución se puede encontrar en el documento del manual de usuario adjunto o en el archivo \emph{README} del código correspondiente. Como se explica en estos documentos, al momento de iniciar el entorno de Docker Compose, también se instancian contenedores para la interfaz gráfica Tabix \parencite{tabix_docker} y para Node.js \parencite{node_docker}. Este último se utilizó para la construcción de una API REST con conexión a la instancia de ClickHouse para consultas simples de tipo CRUD. 
+
+\subsection{Interfaz gráfica de Usuario (GUI)}
+ClickHouse incluye un servidor Web ligero con varias funciones, entre las que se incluye un editor SQL y un dashboard con información de rendimiento, consultas y conexión de la base de datos. Se puede acceder a este servidor conectándose a la dirección IP y al puerto en que se inició la instancia de la base de datos, el proceso detallado se puede encontrar en el manual de usuario. Como veremos más adelante, el editor SQL es suficiente para realizar todos los tipos de consultas que se realizan en ClickHouse. Si se quiere una alternativa ligeramente más completa, se puede utilizar la interfaz Web Tabix \parencite{tabix_docker}, ver el proceso de configuración y conexión con ClickHouse en el manual de usuario. Esta también incluye un editor SQL y métricas de la base de datos, así como opciones para visualizar la estructura y datos de las tablas pertenecientes a esquemas propios del sistema o creados por el administrador de la base de datos. Existen otras alternativas como DBeaver \parencite{clickhouse_dbeaver} y DbVisualizer \parencite{clickhouse_dbvisualizer}. Para las consultas presentadas en este documento, consideramos que es suficiente con utilizar el editor SQL incluido en ClickHouse. 
+
+\subsection{Lenguaje de Consulta SQL para ClickHouse}
+ClickHouse utiliza un lenguaje declarativo basado en el estándar ANSI SQL \parencite{clickhouse_sql_reference}. Como veremos a continuación, las sentencias utilizadas para crear tablas, insertar datos y seleccionar datos (incluyendo la presencia de las clausulas GROUP BY, ORDER BY, FROM, JOIN, IN y la posibilidad de realizar subconsultas) son muy similares a SQL \parencite{clickhouse_sql_reference}. Sin embargo, la actualización y eliminación de datos presentan diferencias importantes. Para este caso de uso, vamos a construir una base de datos simple que almacena datos de comidas de un restaurante. Para mantener el ejemplo simple, únicamente vamos a construir la tabla que almacena los tipos de comida (a modo de catalogo) y la tabla que almacena las comidas y/o platillos. Con este ejemplo se espera resaltar alguna de las principales diferencias de ClickHouse con las bases de datos transaccionales clásicas y demostrar por qué sus características implementadas para OLAP no la hacen adecuada para el manejo de transacciones. 
+
+
+\subsubsection{Sentencias de Definición de Datos}
+
+Para organizar de manera adecuada los elementos de la base de datos, primero vamos a construir un esquema con el siguiente comando \parencite{clickhouse_sql_reference}:  
+% crear esquema y tablas
+\begin{verbatim}
+    CREATE DATABASE comida_db;
+\end{verbatim}
+En caso de que se quiera eliminar el esquema, se puede utilizar: 
+\begin{verbatim}
+    DROP DATABASE comida_db;
+\end{verbatim}
+Para crear las tablas, podemos utilizar los siguientes comandos: 
+\begin{verbatim}
+    CREATE TABLE comida_db.tipo_comida (
+        id UInt32, nombre String
+    ) ENGINE = MergeTree() ORDER BY id;
+\end{verbatim}
+
+\begin{verbatim}
+    CREATE TABLE comida_db.comida (
+        id UInt32, nombre String, tipo_id UInt32,
+        precio_unitario Float32, descripcion String DEFAULT `'
+    ) ENGINE = MergeTree() ORDER BY id;
+\end{verbatim}
+Si se quiero borrar una de las tablas, utilizar:
+\begin{verbatim}
+    DROP TABLE comida_db.detalle_orden;
+\end{verbatim}
+Notar que en la creación de las tablas se usa la misma sintaxis de SQL, de manera que se define el nombre de las filas junto con el tipo de los datos. De manera predeterminada, todas las filas son obligatorias, si no se quiere que siempre se deba ingresar un valor en el INSERT, se puede definir un valor por defecto con la cláusula \emph{DEFAULT} (como en la creación de la tabla \textit{comida}), o utilizando el modificador \emph{Nullable(tipo de dato)} \parencite{clickhouse_sql_reference}. Al momento de crear la tabla, también es necesario indicar el motor de tablas (\emph{table engine}) con la palabra \emph{ENGINE}. El motor utilizado va a determinar la forma en que se almacenan los datos, las consultas soportadas y el tipo de optimización. En este caso se utilizó \emph{MergeTree}, el cual es el motor más utilizado en ClickHouse para instancias de un único nodo por su robustez, alta tasa de ingesta de datos y alto rendimiento en la recuperación de datos. Soporta particiones arbitrarias e índices primarios dispersos. Para entornos de producción y distribuidos, se recomienda \emph{ReplicatedMergeTree} que permite la replicación entre nodos y favorece la alta disponibilidad \parencite{clickhouse_mergetree}. Asimismo, se utiliza \emph{ORDER BY} para indicar el \emph{sorting key} o clave de ordenamiento que determina cómo se organizan físicamente los datos en disco y sobre qué columnas se construye el índice primario disperso. De cierta forma se puede considerar como un tipo de clave primaria, pero no garantiza la unicidad de los datos (dos o más filas pueden tener la misma clave de ordenamiento). El concepto de clave foránea no existe en ClickHouse \parencite{clickhouse_sql_reference}. 
+
+% INSERT
+\subsubsection{Sentencias tipo CRUD o de Manipulación de Datos} 
+\paragraph{Inserción de datos.}
+De manera general, ClickHouse está pensado para la ingesta de grandes volúmenes de datos. En las siguientes consultas se realizan inserciones en lote utilizando la función generadora \emph{numbers(...)}, que permite crear rápidamente múltiples registros sin necesidad de escribir cada fila manualmente \parencite{clickhouse_sql_reference}. 
+
+\begin{verbatim}
+    INSERT INTO comida_db.tipo_comida
+    SELECT
+        number + 1 AS id,
+        [`Entrada', `Plato Principal', `Postre', `Bebida', `Snack',
+        `Ensalada',  `Sopa', `Pizza', `Hamburguesa', `Pasta', `Taco', 
+        `Sushi', `Sandwich',`Helado', `Galleta', `Batido', `Smoothie', 
+        `Café', `Té', `Jugo']
+        [number + 1] AS nombre
+    FROM numbers(20);
+\end{verbatim}
+
+\begin{verbatim}
+    INSERT INTO comida_db.comida
+    SELECT
+        number + 1 AS id,
+        concat(`Comida_', number + 1) AS nombre,
+        number + 1 AS tipo_id,
+        toFloat32(rand() % 10000 + 1) AS precio_unitario,
+        concat(`Descripción de la comida ', number + 1) AS descripcion
+    FROM numbers(20);
+\end{verbatim}
+Como se puede revisar en la documentación, el \emph{INSERT} también permite insertar en lote datos mediante archivos en formatos como \emph{JSON}, \emph{CSV}, entre otros \parencite{clickhouse_sql_reference}. También es posible realizar inserciones de una única fila como se realiza en SQL:
+\begin{verbatim}
+    INSERT INTO comida_db.tipo_comida (id, nombre)
+        VALUES(21, `Guarnición');
+    FROM comida_db.tipo_comida;
+\end{verbatim}
+Sin embargo, es importante considerar que ClickHouse no está pensada para manejar transacciones, por lo que siempre es preferible la inserción en lote.   
+
+
+% DELETE  
+\paragraph{Borrado de datos.}
+Tanto el \emph{DELETE} como \emph{UPDATE} presentan diferencias importantes con SQL, ya que en ClickHouse no se eliminan ni actualizan las filas de forma inmediata. En su lugar, se generan \emph{mutaciones}, que son operaciones asíncronas aplicadas en segundo plano
+por el motor \parencite{clickhouse_sql_reference}. En el siguiente ejemplo se realiza un borrado condicional de una fila específica:
+
+
+
+\begin{verbatim}
+    ALTER TABLE comida_db.tipo_comida 
+        DELETE WHERE id = 21 AND nombre = `Guarnición';
+\end{verbatim}
+Desde versiones más recientes, también se permite el uso de la sentencia \emph{DELETE FROM}, el cual se considera un borrado ligero (implica una menor carga de trabajo y aumenta el rendimiento), ya que las filas se marcan como borradas de manera lógica y se omiten en futuras consultas, sin realizar el borrado físico inmediatamente. Este borrado está disponible en los motores de la familia \emph{MergeTree} \parencite{clickhouse_sql_reference}. 
+
+\begin{verbatim}
+    DELETE FROM comida_db.tipo_comida
+    WHERE id = 21; 
+\end{verbatim}
+
+
+
+% UPDATE 
+\paragraph{Actualización de datos.} La sentencia \emph{UPDATE} también se comporta de forma distinta a SQL tradicional. En ClickHouse, las actualizaciones no se aplican de manera inmediata, sino que se gestionan como \emph{mutaciones}, las cuales se ejecutan en segundo plano por el motor \parencite{clickhouse_sql_reference}. En el siguiente ejemplo se actualiza el valor de una fila específica:
+
+\begin{verbatim} 
+    ALTER TABLE comida_db.tipo_comida 
+        UPDATE nombre = `Emparedado' 
+    WHERE id = 13; 
+\end{verbatim}
+
+Es importante notar que, si se trata de borrar o actualizar un dato para el cual no hay coincidencia, la base de datos no devuelve error; por ejemplo, si se usa un \emph{WHERE} con un \emph{id} que no existe.
+
+% SELECT
+\paragraph{Selección de datos.} 
+La sintaxis de la selección de datos en ClickHouse sigue el estándar de SQL, permitiendo recuperar información mediante la sentencia \emph{SELECT}. Esta puede incluir cláusulas como \emph{WHERE}, \emph{JOIN}, \emph{GROUP BY} y \emph{ORDER BY}, entre otras \parencite{clickhouse_sql_reference}. En el siguiente ejemplo se realiza una consulta simple que filtra las comidas cuyo precio unitario supera los 5000:
+
+\begin{verbatim}
+    SELECT * from comida_db.comida 
+    where precio_unitario > 5000;
+\end{verbatim}
+En la siguiente consulta se unen ambas tablas mediante \emph{JOIN}:
+\begin{verbatim}
+    SELECT
+        c.id, c.nombre AS comida,
+        t.nombre AS tipo, c.descripcion
+    FROM comida_db.comida AS c
+    INNER JOIN comida_db.tipo_comida AS t
+    ON c.tipo_id = t.id;
+\end{verbatim}
+Como último ejemplo, se realiza una operación de agregación para el cálculo del mínimo, máximo, suma y promedio del precio unitario de las comidas según el tipo de comida, ordenado por el nombre de la comina de manera ascendente. 
+\begin{verbatim}
+    SELECT
+        t.nombre AS tipo_comida,
+        min(c.precio_unitario) AS precio_minimo,
+        max(c.precio_unitario) AS precio_maximo,
+        sum(c.precio_unitario) AS suma_precios,
+        avg(c.precio_unitario) AS precio_promedio
+    FROM comida_db.comida AS c
+    INNER JOIN comida_db.tipo_comida AS t ON c.tipo_id = t.id
+    GROUP BY t.nombre
+    ORDER BY t.nombre ASC;
+\end{verbatim}
+
+
+
+\subsection{Implementación de la API REST}
+La API REST se implementó usando Node.js 18 (ver en el manual de usuario el proceso de instalación y ejecución) \parencite{node_docker}, en especifico usando las bibliotecas \emph{Express} para la creación de la API y \emph{@clickhouse/client} para la conexión directa con la base de datos ClickHouse. La API REST implementada permite realizar las operaciones \emph{GET}, \emph{PUT}, \emph{PATCH} y \emph{DELETE} para modificar los datos correspondientes a la tabla \emph{comidas}. Se puede utilizar Postman (u otro cliente HTTP) para realizar los siguientes ejemplos representativos:
+
+\paragraph{Consulta de datos (GET)}  
+Permite recuperar los registros completos o agregados:
+\begin{verbatim}
+        GET http://localhost:3001/comidas
+        GET http://localhost:3001/comidas/resumen
+\end{verbatim}
+
+\paragraph{Inserción de datos (POST)}  
+Permite registrar una nueva comida en la base de datos: 
+    \begin{verbatim}
+        POST http://localhost:3001/comidas
+        Body:
+        {
+          "nombre": "Hamburguesa Clásica",
+          "tipo_id": 9,
+          "precio_unitario": 3000,
+          "descripcion": "Hamburguesa de carne de res, lechuga, tomate, 
+          cebolla y queso."
+        }
+\end{verbatim}
+
+\paragraph{Actualización de datos (PATCH)}  
+Permite modificar una o varias columnas de un registro existente, identificado por su \emph{id}:  
+\begin{verbatim}
+        PATCH http://localhost:3001/comidas/21
+        Body:
+        {
+          "nombre": "Ensalada César"
+        }
+\end{verbatim}
+
+\paragraph{Eliminación de datos (DELETE)}  
+Permite eliminar un registro específico. Si el \emph{id} no existe, la operación no genera error, simplemente no afecta ningún registro:
+\begin{verbatim}
+        DELETE http://localhost:3001/comidas/10000
+        DELETE http://localhost:3001/comidas/22
+\end{verbatim}
+
+Para más detalles del funcionamiento de la API, se recomienda revisar el código fuente de la misma. 
+
+\subsection{Lecciones aprendidas}
+
+\begin{itemize}
+    \item La instalación de ClickHouse mediante Docker simplifica el despliegue y evita problemas de dependencias.  
+    \item La API REST permite exponer la base de datos para consumo de aplicaciones externas.
+    \item El SQL de ClickHouse está enfocado en la velocidad de las consulta para grandes volúmenes de datos. Las principales optimizaciones están enfocadas en \emph{SELECT} y la inserción por lotes. Se sacrificando la existencia de transacciones en el sentido tradicional y la eficiencia de operaciones unitarias de escritura es baja.
+    \item Las operaciones como \emph{UPDATE} y \emph{DELETE} se gestionan mediante mutaciones asíncronas.
+    \item No existe soporte nativo para transacciones multi-etapa o reversibles.
+    \item ClickHouse no soporta claves foráneas, existen claves de ordenamiento que presentan similitudes con las claves primarias, pero no son iguales.  
+    \item La elección del motor de tablas en ClickHouse afecta el rendimiento de las consultas, las capacidades disponibles para la manipulación de datos y ciertas características relacionadas con el funcionamiento distribuido. 
+
+\end{itemize}

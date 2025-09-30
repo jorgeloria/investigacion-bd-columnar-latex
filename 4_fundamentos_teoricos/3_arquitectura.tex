@@ -16,4 +16,4 @@ La arquitectura física se basa en un modelo de almacenamiento por descomposici�
 
 Un componente esencial de la arquitectura de las bases de datos orientadas a columnas es una proyección. \textcite{matei2010} define una proyección como un conjunto de columnas de una o más tablas lógicas que se almacenan juntas y se ordenan físicamente por atributos. Asimismo, \textcite{stonebraker2005cstore} menciona que una misma columna puede existir en múltiples proyecciones con diferentes órdenes de clasificación, de manera que el optimizador elige la proyección más adecuada para ejecutar la consulta.
 
-C-Store introduce el almacenamiento híbrido
+Como mencionado en secciones anteriores, C-Store introduce el almacenamiento híbrido. Maneja el almacén para lectura RS (Read Store) y el de escritura WS (\textit{Write Store}). En WS se almacenan las nuevas escrituras en memoria, las cuales se migran a RS mediante el proceso llamado \textit{Tupler Mover}. En RS los datos se comprimen y se guardan en columnas para permitir una lectura rápida. 
